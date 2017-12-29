@@ -4,10 +4,14 @@
 package akka.util
 import scala.util.control.NonFatal
 import java.lang.reflect.Constructor
+
 import scala.collection.immutable
 import java.lang.reflect.Type
+
 import scala.annotation.tailrec
 import java.lang.reflect.ParameterizedType
+import java.util.concurrent.atomic.AtomicReference
+
 import scala.util.Try
 
 /**
@@ -70,6 +74,8 @@ private[akka] object Reflect {
     }
   }
 
+  private val constructorBindingRef = new AtomicReference[Map[String, Constructor[_]]](Map.empty)
+
   /**
    * INTERNAL API
    * Implements a primitive form of overload resolution a.k.a. finding the
@@ -81,29 +87,55 @@ private[akka] object Reflect {
       throw new IllegalArgumentException(s"$msg found on $clazz for arguments [$argClasses]")
     }
 
-    val constructor: Constructor[T] =
-      if (args.isEmpty) Try { clazz.getDeclaredConstructor() } getOrElse (null)
-      else {
-        val length = args.length
-        val candidates =
-          clazz.getDeclaredConstructors.asInstanceOf[Array[Constructor[T]]].iterator filter { c ⇒
-            val parameterTypes = c.getParameterTypes
-            parameterTypes.length == length &&
-              (parameterTypes.iterator zip args.iterator forall {
-                case (found, required) ⇒
-                  found.isInstance(required) || BoxedType(found).isInstance(required) ||
-                    (required == null && !found.isPrimitive)
-              })
-          }
-        if (candidates.hasNext) {
-          val cstrtr = candidates.next()
-          if (candidates.hasNext) error("multiple matching constructors")
-          else cstrtr
-        } else null
-      }
+    def resolveConstructor() = {
+      val constructor: Constructor[T] =
+        if (args.isEmpty) Try { clazz.getDeclaredConstructor() } getOrElse null
+        else {
+          val length = args.length
+          val candidates =
+            clazz.getDeclaredConstructors.asInstanceOf[Array[Constructor[T]]].iterator filter { c ⇒
+              val parameterTypes = c.getParameterTypes
+              parameterTypes.length == length &&
+                (parameterTypes.iterator zip args.iterator forall {
+                  case (found, required) ⇒
+                    found.isInstance(required) || BoxedType(found).isInstance(required) ||
+                      (required == null && !found.isPrimitive)
+                })
+            }
+          if (candidates.hasNext) {
+            val cstrtr = candidates.next()
+            if (candidates.hasNext) error("multiple matching constructors")
+            else cstrtr
+          } else null
+        }
 
-    if (constructor == null) error("no matching constructor")
-    else constructor
+      if (constructor == null) error("no matching constructor")
+      else constructor
+    }
+
+    val constructorKey = s"${clazz.getName}-${args.length}-argTypes(${
+      args.map({
+        case null    ⇒ "Any"
+        case notNull ⇒ notNull.getClass
+      }).mkString(",")
+    })"
+
+    @tailrec
+    def getConstructor(constructor: Constructor[T]): Constructor[T] = {
+      val constructorBinding = constructorBindingRef.get()
+      constructorBinding.get(constructorKey) match {
+        case Some(cachedConstructor) ⇒
+          cachedConstructor.asInstanceOf[Constructor[T]]
+        case None ⇒
+          val unCachedConstructor = if (constructor ne null) constructor else resolveConstructor()
+          if (constructorBindingRef.compareAndSet(constructorBinding, constructorBinding.updated(constructorKey, unCachedConstructor))) {
+            unCachedConstructor
+          } else {
+            getConstructor(unCachedConstructor)
+          }
+      }
+    }
+    getConstructor(null)
   }
 
   private def safeGetClass(a: Any): Class[_] =
