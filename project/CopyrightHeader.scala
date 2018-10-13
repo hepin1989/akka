@@ -64,6 +64,15 @@ trait CopyrightHeader extends AutoPlugin {
       case _                                          =>
         header
     }
+    
+    def parseStartAndEndYear(header:String):Option[(String,Option[String])] = header match {
+      case CopyrightHeaderPattern(years, null, _)     =>
+        Some((years,None))
+      case CopyrightHeaderPattern(years, endYears, _) =>
+        Some((years,Some(endYears)))
+      case _                                          =>
+        None
+    }
 
     def parseStartAndEndYear(header:String):Option[(String,Option[String])] = header match {
       case CopyrightHeaderPattern(years, null, _)     =>
