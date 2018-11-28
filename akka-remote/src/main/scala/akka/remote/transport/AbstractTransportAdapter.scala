@@ -65,7 +65,7 @@ trait SchemeAugmenter {
  * An adapter that wraps a transport and provides interception
  */
 abstract class AbstractTransportAdapter(protected val wrappedTransport: Transport)(implicit val ec: ExecutionContext)
-  extends Transport with SchemeAugmenter {
+  extends Transport with SchemeAugmenter with StaticAddressBinding {
 
   protected def maximumOverhead: Int
 
@@ -99,10 +99,8 @@ abstract class AbstractTransportAdapter(protected val wrappedTransport: Transpor
    */
   private[akka] def boundAddress: Address = wrappedTransport match {
     // Need to do like this in the backport of #15007 to 2.3.x for binary compatibility reasons
-    case t: AbstractTransportAdapter ⇒ t.boundAddress
-    case t: netty.NettyTransport     ⇒ t.boundAddress
-    case t: TestTransport            ⇒ t.boundAddress
-    case _                           ⇒ null
+    case t: StaticAddressBinding ⇒ t.boundAddress
+    case _                       ⇒ null
   }
 
   override def associate(remoteAddress: Address): Future[AssociationHandle] = {

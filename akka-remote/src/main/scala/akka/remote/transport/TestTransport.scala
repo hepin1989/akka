@@ -28,7 +28,7 @@ class TestTransport(
   val localAddress:        Address,
   final val registry:      AssociationRegistry,
   val maximumPayloadBytes: Int                 = 32000,
-  val schemeIdentifier:    String              = "test") extends Transport {
+  val schemeIdentifier:    String              = "test") extends Transport with StaticAddressBinding {
 
   def this(system: ExtendedActorSystem, conf: Config) = {
     this(

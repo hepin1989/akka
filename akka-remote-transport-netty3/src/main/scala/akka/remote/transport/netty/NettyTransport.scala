@@ -20,7 +20,6 @@ import scala.concurrent.blocking
 import scala.util.Try
 import scala.util.control.NoStackTrace
 import scala.util.control.NonFatal
-
 import akka.actor.ActorSystem
 import akka.actor.Address
 import akka.actor.ExtendedActorSystem
@@ -32,8 +31,7 @@ import akka.remote.transport.Transport._
 import akka.remote.transport.netty.NettyTransportSettings.Mode
 import akka.remote.transport.netty.NettyTransportSettings.Tcp
 import akka.remote.transport.netty.NettyTransportSettings.Udp
-import akka.remote.transport.AssociationHandle
-import akka.remote.transport.Transport
+import akka.remote.transport.{ AssociationHandle, StaticAddressBinding, Transport }
 import akka.util.Helpers
 import akka.util.Helpers.Requiring
 import akka.util.OptionVal
@@ -289,7 +287,7 @@ private[transport] object NettyTransport {
 }
 
 // FIXME: Split into separate UDP and TCP classes
-class NettyTransport(val settings: NettyTransportSettings, val system: ExtendedActorSystem) extends Transport {
+class NettyTransport(val settings: NettyTransportSettings, val system: ExtendedActorSystem) extends Transport with StaticAddressBinding {
 
   def this(system: ExtendedActorSystem, conf: Config) = this(new NettyTransportSettings(conf), system)
 

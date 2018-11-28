@@ -1,4 +1,4 @@
-import akka.{ParadoxSupport, AutomaticModuleName}
+import akka.{AutomaticModuleName, ParadoxSupport}
 
 enablePlugins(UnidocRoot, TimeStampede, UnidocWithPrValidation, NoPublish, CopyrightHeader, CopyrightHeaderInPr)
 disablePlugins(MimaPlugin)
@@ -244,7 +244,7 @@ lazy val docs = akkaModule("akka-docs")
   .disablePlugins(MimaPlugin, WhiteSourcePlugin)
 
 lazy val multiNodeTestkit = akkaModule("akka-multi-node-testkit")
-  .dependsOn(remote, testkit)
+  .dependsOn(remote,remoteTransportNetty3,testkit)
   .settings(Protobuf.settings)
   .settings(AutomaticModuleName.settings("akka.remote.testkit"))
   .settings(AkkaBuild.mayChangeSettings)
@@ -311,6 +311,26 @@ lazy val protobuf = akkaModule("akka-protobuf")
 lazy val remote = akkaModule("akka-remote")
   .dependsOn(actor, stream, actorTests % "test->test", testkit % "test->test", streamTestkit % "test", protobuf)
   .settings(Dependencies.remote)
+  .settings(AutomaticModuleName.settings("akka.remote"))
+  .settings(OSGi.remote)
+  .settings(Protobuf.settings)
+  .settings(
+    parallelExecution in Test := false
+  )
+
+lazy val remoteTransportNetty3 = akkaModule("akka-remote-transport-netty3")
+  .dependsOn(remote, actorTests % "test->test", testkit % "test->test", streamTestkit % "test", protobuf)
+  .settings(Dependencies.remoteNetty3)
+  .settings(AutomaticModuleName.settings("akka.remote"))
+  .settings(OSGi.remote)
+  .settings(Protobuf.settings)
+  .settings(
+    parallelExecution in Test := false
+  )
+
+lazy val remoteTransportNetty4 = akkaModule("akka-remote-transport-netty4")
+  .dependsOn(remote, actorTests % "test->test", testkit % "test->test", streamTestkit % "test", protobuf)
+  .settings(Dependencies.remoteNetty4)
   .settings(AutomaticModuleName.settings("akka.remote"))
   .settings(OSGi.remote)
   .settings(Protobuf.settings)

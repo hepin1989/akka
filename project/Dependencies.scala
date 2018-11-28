@@ -45,7 +45,8 @@ object Dependencies {
 
     // when updating config version, update links ActorSystem ScalaDoc to link to the updated version
     val config = "com.typesafe" % "config" % "1.3.3" // ApacheV2
-    val netty = "io.netty" % "netty" % "3.10.6.Final" // ApacheV2
+    val netty3 = "io.netty" % "netty" % "3.10.6.Final" // ApacheV2
+    val netty4 = "io.netty" % "netty-all" % "4.1.31.Final" // ApacheV2
     val scalaStm = Def.setting { "org.scala-stm" %% "scala-stm" % scalaStmVersion.value } // Modified BSD (Scala)
 
     val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion // Scala License
@@ -158,7 +159,11 @@ object Dependencies {
 
   val actorTestkitTyped = l ++= Seq(Provided.junit, Provided.scalatest.value)
 
-  val remote = l ++= Seq(netty, aeronDriver, aeronClient, Test.junit, Test.scalatest.value, Test.jimfs)
+  val remote = l ++= Seq(aeronDriver, aeronClient, Test.junit, Test.scalatest.value, Test.jimfs)
+
+  val remoteNetty3 = l ++= Seq(netty3, Test.junit, Test.scalatest.value)
+
+  val remoteNetty4 = l ++= Seq(netty4, Test.junit, Test.scalatest.value)
 
   val remoteTests = l ++= Seq(Test.junit, Test.scalatest.value, Test.scalaXml)
 

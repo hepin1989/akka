@@ -4,13 +4,14 @@
 
 package akka.remote
 
-import language.postfixOps
-import akka.testkit.AkkaSpec
-import scala.concurrent.duration._
 import akka.remote.transport.AkkaProtocolSettings
-import akka.util.{ Helpers }
+import akka.remote.transport.netty.{NettyTransportSettings, SSLSettings}
+import akka.testkit.AkkaSpec
+import akka.util.Helpers
 import akka.util.Helpers.ConfigOps
-import akka.remote.transport.netty.{ NettyTransportSettings, SSLSettings }
+
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class RemoteConfigSpec extends AkkaSpec(
   """
