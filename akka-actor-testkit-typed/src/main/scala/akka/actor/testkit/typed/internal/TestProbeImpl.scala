@@ -189,7 +189,7 @@ private[akka] final class TestProbeImpl[M](name: String, system: ActorSystem[_])
     }
   }
 
-  override protected def receiveN_internal(n: Int, max: FiniteDuration): immutable.Seq[M] = {
+  override protected def receiveN_internal(n: Int, max: FiniteDuration): immutable.Seq[Option[M]] = {
     val stop = max + now
     for (x ← 1 to n) yield {
       val timeout = stop - now

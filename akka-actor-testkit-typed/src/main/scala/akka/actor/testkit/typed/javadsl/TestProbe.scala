@@ -224,17 +224,19 @@ abstract class TestProbe[M] {
    * Same as `receiveN(n, remaining)` but correctly taking into account
    * the timeFactor.
    */
-  def receiveMessages(n: Int): JList[M] = receiveN_internal(n, getRemainingOrDefault.asScala).asJava
+  def receiveMessages(n: Int): JList[M] = receiveN_internal(n, getRemainingOrDefault.asScala)
+    .collect({ case Some(m) ⇒ m }).asJava
 
   /**
    * Receive `n` messages in a row before the given deadline.
    */
-  def receiveMessages(n: Int, max: Duration): JList[M] = receiveN_internal(n, max.asScala.dilated).asJava
+  def receiveMessages(n: Int, max: Duration): JList[M] = receiveN_internal(n, max.asScala.dilated)
+    .collect({ case Some(m) ⇒ m }).asJava
 
   /**
    * INTERNAL API
    */
-  @InternalApi protected def receiveN_internal(n: Int, max: FiniteDuration): immutable.Seq[M]
+  @InternalApi protected def receiveN_internal(n: Int, max: FiniteDuration): immutable.Seq[Option[M]]
 
   /**
    * Java API: Allows for flexible matching of multiple messages within a timeout, the fisher function is fed each incoming
