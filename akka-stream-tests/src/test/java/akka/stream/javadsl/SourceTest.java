@@ -837,9 +837,8 @@ public class SourceTest extends StreamTest {
 
     queue.offer(0);
     queue.offer(1);
-    queue
-        .complete(); // complete queueSource so that combined with `Concat` pulls elements from
-                     // queueSource
+    // complete queueSource so that combined with `Concat` pulls elements from queueSource
+    queue.complete();
 
     // elements from source1 (i.e. first of combined source) come first, then source2 elements, due
     // to `Concat`
@@ -887,10 +886,9 @@ public class SourceTest extends StreamTest {
 
   @Test
   public void createEmptySource() throws Exception {
-      List<Integer> actual = Source.empty(Integer.class)
-              .runWith(Sink.seq(), materializer)
-              .toCompletableFuture().get();
-      assertThat(actual, is(Collections.emptyList()));
+    List<Integer> actual =
+        Source.empty(Integer.class).runWith(Sink.seq(), materializer).toCompletableFuture().get();
+    assertThat(actual, is(Collections.emptyList()));
   }
 
   @Test
