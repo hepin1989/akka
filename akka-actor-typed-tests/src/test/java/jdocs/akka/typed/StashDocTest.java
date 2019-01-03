@@ -4,17 +4,16 @@
 
 package jdocs.akka.typed;
 
-//#import
+// #import
 import akka.actor.typed.javadsl.StashBuffer;
-//#import
+// #import
 
 import akka.Done;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.testkit.typed.javadsl.TestKitJunitResource;
-import akka.actor.testkit.typed.javadsl.TestProbe;
-import org.junit.ClassRule;
+import akka.actor.testkit.typed.javadsl.TestInbox;
+import akka.actor.testkit.typed.javadsl.BehaviorTestKit;
 import org.junit.Test;
 import org.scalatest.junit.JUnitSuite;
 
@@ -23,20 +22,20 @@ import java.util.concurrent.CompletionStage;
 
 public class StashDocTest extends JUnitSuite {
 
-  //#db
+  // #db
 
   interface DB {
     CompletionStage<Done> save(String id, String value);
+
     CompletionStage<String> load(String id);
   }
-  //#db
+  // #db
 
-  //#stashing
+  // #stashing
 
   public static class DataAccess {
 
-    static interface Command {
-    }
+    static interface Command {}
 
     public static class Save implements Command {
       public final String payload;
@@ -67,8 +66,7 @@ public class StashDocTest extends JUnitSuite {
     static class SaveSuccess implements Command {
       public static final SaveSuccess instance = new SaveSuccess();
 
-      private SaveSuccess() {
-      }
+      private SaveSuccess() {}
     }
 
     static class DBError implements Command {
@@ -78,7 +76,6 @@ public class StashDocTest extends JUnitSuite {
         this.cause = cause;
       }
     }
-
 
     private final StashBuffer<Command> buffer = StashBuffer.create(100);
     private final String id;
@@ -90,69 +87,85 @@ public class StashDocTest extends JUnitSuite {
     }
 
     Behavior<Command> behavior() {
-      return Behaviors.setup(context -> {
-        context.pipeToSelf(db.load(id), (value, cause) -> {
-            if (cause == null)
-              return new InitialState(value);
-            else
-              return new DBError(asRuntimeException(cause));
-        });
+      return Behaviors.setup(
+          context -> {
+            db.load(id)
+                .whenComplete(
+                    (value, cause) -> {
+                      if (cause == null) context.getSelf().tell(new InitialState(value));
+                      else context.getSelf().tell(new DBError(asRuntimeException(cause)));
+                    });
 
-        return init();
-      });
+            return init();
+          });
     }
 
     private Behavior<Command> init() {
       return Behaviors.receive(Command.class)
-          .onMessage(InitialState.class, (context, message) -> {
-            // now we are ready to handle stashed messages if any
-            return buffer.unstashAll(context, active(message.value));
-          })
-          .onMessage(DBError.class, (context, message) -> {
-            throw message.cause;
-          })
-          .onMessage(Command.class, (context, message) -> {
-            // stash all other messages for later processing
-            buffer.stash(message);
-            return Behaviors.same();
-          })
+          .onMessage(
+              InitialState.class,
+              (context, message) -> {
+                // now we are ready to handle stashed messages if any
+                return buffer.unstashAll(context, active(message.value));
+              })
+          .onMessage(
+              DBError.class,
+              (context, message) -> {
+                throw message.cause;
+              })
+          .onMessage(
+              Command.class,
+              (context, message) -> {
+                // stash all other messages for later processing
+                buffer.stash(message);
+                return Behaviors.same();
+              })
           .build();
     }
 
     private Behavior<Command> active(String state) {
       return Behaviors.receive(Command.class)
-          .onMessage(Get.class, (context, message) -> {
-            message.replyTo.tell(state);
-            return Behaviors.same();
-          })
-          .onMessage(Save.class, (context, message) -> {
-            context.pipeToSelf(db.save(id, message.payload), (value, cause) -> {
-                if (cause == null)
-                  return SaveSuccess.instance;
-                else
-                  return new DBError(asRuntimeException(cause));
-              });
-            return saving(message.payload, message.replyTo);
-          })
+          .onMessage(
+              Get.class,
+              (context, message) -> {
+                message.replyTo.tell(state);
+                return Behaviors.same();
+              })
+          .onMessage(
+              Save.class,
+              (context, message) -> {
+                db.save(id, message.payload)
+                    .whenComplete(
+                        (value, cause) -> {
+                          if (cause == null) context.getSelf().tell(SaveSuccess.instance);
+                          else context.getSelf().tell(new DBError(asRuntimeException(cause)));
+                        });
+                return saving(message.payload, message.replyTo);
+              })
           .build();
     }
 
     private Behavior<Command> saving(String state, ActorRef<Done> replyTo) {
       return Behaviors.receive(Command.class)
-          .onMessageEquals(SaveSuccess.instance, context -> {
-            replyTo.tell(Done.getInstance());
-            return buffer.unstashAll(context, active(state));
-          })
-          .onMessage(DBError.class, (context, message) -> {
-            throw message.cause;
-          })
-          .onMessage(Command.class, (context, message) -> {
-            buffer.stash(message);
-            return Behaviors.same();
-          })
+          .onMessageEquals(
+              SaveSuccess.instance,
+              context -> {
+                replyTo.tell(Done.getInstance());
+                return buffer.unstashAll(context, active(state));
+              })
+          .onMessage(
+              DBError.class,
+              (context, message) -> {
+                throw message.cause;
+              })
+          .onMessage(
+              Command.class,
+              (context, message) -> {
+                buffer.stash(message);
+                return Behaviors.same();
+              })
           .build();
     }
-
 
     private static RuntimeException asRuntimeException(Throwable t) {
       // can't throw Throwable in lambdas
@@ -162,42 +175,39 @@ public class StashDocTest extends JUnitSuite {
         return new RuntimeException(t);
       }
     }
-
   }
 
-  //#stashing
-
-  @ClassRule
-  public static final TestKitJunitResource testKit = new TestKitJunitResource();
-
+  // #stashing
 
   @Test
   public void stashingExample() throws Exception {
-    final DB db = new DB() {
-      public CompletionStage<Done> save(String id, String value) {
-        return CompletableFuture.completedFuture(Done.getInstance());
-      }
-      public CompletionStage<String> load(String id) {
-        return CompletableFuture.completedFuture("TheValue");
-      }
-    };
+    final DB db =
+        new DB() {
+          public CompletionStage<Done> save(String id, String value) {
+            return CompletableFuture.completedFuture(Done.getInstance());
+          }
 
-    final ActorRef<DataAccess.Command> dataAccess = testKit.spawn(new DataAccess("17", db).behavior());
-    TestProbe<String> getInbox = testKit.createTestProbe(String.class);
-    dataAccess.tell(new DataAccess.Get(getInbox.getRef()));
+          public CompletionStage<String> load(String id) {
+            return CompletableFuture.completedFuture("TheValue");
+          }
+        };
+    final DataAccess dataAccess = new DataAccess("17", db);
+    BehaviorTestKit<DataAccess.Command> testKit = BehaviorTestKit.create(dataAccess.behavior());
+    TestInbox<String> getInbox = TestInbox.create("getInbox");
+    testKit.run(new DataAccess.Get(getInbox.getRef()));
+    DataAccess.Command initialStateMsg = testKit.selfInbox().receiveMessage();
+    testKit.run(initialStateMsg);
     getInbox.expectMessage("TheValue");
 
-    TestProbe<Done> saveInbox = testKit.createTestProbe(Done.class);
-    dataAccess.tell(new DataAccess.Save("UpdatedValue", saveInbox.getRef()));
-    dataAccess.tell(new DataAccess.Get(getInbox.getRef()));
+    TestInbox<Done> saveInbox = TestInbox.create("saveInbox");
+    testKit.run(new DataAccess.Save("UpdatedValue", saveInbox.getRef()));
+    testKit.run(new DataAccess.Get(getInbox.getRef()));
+    DataAccess.Command saveSuccessMsg = testKit.selfInbox().receiveMessage();
+    testKit.run(saveSuccessMsg);
     saveInbox.expectMessage(Done.getInstance());
     getInbox.expectMessage("UpdatedValue");
 
-    dataAccess.tell(new DataAccess.Get(getInbox.getRef()));
+    testKit.run(new DataAccess.Get(getInbox.getRef()));
     getInbox.expectMessage("UpdatedValue");
   }
-
 }
-
-
-
